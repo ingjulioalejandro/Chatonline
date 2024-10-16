@@ -13,22 +13,16 @@
             while($row = mysqli_fetch_assoc($query)){
                 if($row['outgoing_msg_id'] === $outgoing_id){
                     $output .= '<div class="chat outgoing">
-                                    <div class="dateTimet">
-                                        <p>'. $row['dateTimeMsg'] .'</p>
-                                    </div>
-                                    <div class="details">
-                                        <p>'. $row['msg'] .'</p>
-                                    </div>
+                                <div class="details">
+                                    <p>'.htmlspecialchars($row['msg']).'</p>
+                                </div>
                                 </div>';
                 }else{
                     $output .= '<div class="chat incoming">
-                                    <img src="php/images/'.$row['img'].'" alt="">
-                                    <div class="details">
-                                        <p>'. $row['msg'] .'</p>
-                                    </div>
-                                    <div class="dateTimet">
-                                        <p>'. $row['dateTimeMsg'] .'</p>
-                                    </div>
+                                <img src="php/images/'.$row['img'].'" alt="">
+                                <div class="details">
+                                    <p>'.htmlspecialchars($row['msg']).'</p>
+                                </div>
                                 </div>';
                 }
             }
@@ -40,4 +34,27 @@
         header("location: ../login.php");
     }
 
+    function getFileIcon($extension) {
+        $icon_classes = [
+            'pdf' => 'far fa-file-pdf',
+            'doc' => 'far fa-file-word',
+            'docx' => 'far fa-file-word',
+            'xls' => 'far fa-file-excel',
+            'xlsx' => 'far fa-file-excel',
+            'txt' => 'far fa-file-alt',
+            'csv' => 'far fa-file-csv',
+            'zip' => 'far fa-file-archive',
+            'rar' => 'far fa-file-archive',
+            'mp3' => 'far fa-file-audio',
+            'mp4' => 'far fa-file-video',
+            'avi' => 'far fa-file-video',
+            'mov' => 'far fa-file-video',
+            'jpg' => 'far fa-file-image',
+            'jpeg' => 'far fa-file-image',
+            'png' => 'far fa-file-image',
+            'gif' => 'far fa-file-image'
+        ];
+
+        return isset($icon_classes[strtolower($extension)]) ? $icon_classes[strtolower($extension)] : 'far fa-file';
+    }
 ?>

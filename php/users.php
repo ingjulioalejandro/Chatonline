@@ -2,53 +2,61 @@
 session_start();
 include_once "config.php";
 
+if(!isset($_SESSION['unique_id'])){
+    echo "Session unique_id not set";
+    exit;
+}
+
 $outgoing_id = $_SESSION['unique_id'];
+$sql = "SELECT * FROM users WHERE NOT unique_id = ? AND unique_id IS NOT NULL";
+$stmt = mysqli_prepare($conn, $sql);
+mysqli_stmt_bind_param($stmt, "s", $outgoing_id);
+mysqli_stmt_execute($stmt);
+$query = mysqli_stmt_get_result($stmt);
 
-// Consulta para seleccionar usuarios y grupos de chat
-$sql = "SELECT users.unique_id AS id, users.fname, users.lname, users.img, users.status 
-        FROM users 
-        WHERE NOT unique_id = {$outgoing_id}";
-
-// Verificamos si hay resultados y seleccionamos los grupos de chat
-$sql_groups = "SELECT chatrooms.room_id AS id, chatrooms.room_name AS fname, '' AS lname, '' AS img, 'group' AS status 
-               FROM chatrooms 
-               WHERE created_by = {$outgoing_id}";
-
-// Unimos las dos consultas
-$sql_final = "({$sql}) UNION ({$sql_groups})";
-$query = mysqli_query($conn, $sql_final);
+if(!$query){
+    echo "Query failed: " . mysqli_error($conn);
+    exit;
+}
 
 $output = "";
 
 if(mysqli_num_rows($query) == 0){
-    $output .= "No users or groups are available";
-} elseif(mysqli_num_rows($query) > 0) {
-    while($row = mysqli_fetch_assoc($query)) {
-        // Si es un grupo de chat, asignamos una imagen y formato diferente
-        if ($row['status'] == 'group') {
-            $output .= '<a href="group_chat.php?room_id='. $row['id'] .'">
-                            <div class="content">
-                                <img src="php/images/group-icon.png" alt="Group Icon">
-                                <div class="details">
-                                    <span>'. htmlspecialchars($row['fname']) .'</span>
-                                    <p>Group chat</p>
-                                </div>
-                            </div>
-                            <div class="status-dot"><i class="fas fa-circle"></i></div>
-                        </a>';
-        } else {
-            // Asegúrate de que estamos usando `unique_id` (id) en lugar de `user_id`
-            $output .= '<a href="chat.php?user_id='. $row['id'] .'"> <!-- Aquí id es el unique_id -->
-                            <div class="content">
-                                <img src="php/images/'. htmlspecialchars($row['img']) .'" alt="User Image">
-                                <div class="details">
-                                    <span>'. htmlspecialchars($row['fname']). " " . htmlspecialchars($row['lname']) .'</span>
-                                    <p>'. htmlspecialchars($row['status']) .'</p>
-                                </div>
-                            </div>
-                            <div class="status-dot '. ($row['status'] == "Active now" ? "online" : "offline") .'"><i class="fas fa-circle"></i></div>
-                        </a>';
+    $output .= "No users are available to chat";
+}elseif(mysqli_num_rows($query) > 0){
+    while($row = mysqli_fetch_assoc($query)){
+        if(!isset($row['unique_id'])){
+            continue;  // Skip users without unique_id
         }
+        
+        // Rest of your code to generate user list
+        $sql2 = "SELECT * FROM messages 
+                 WHERE (incoming_msg_id = ? OR outgoing_msg_id = ?) 
+                 AND (outgoing_msg_id = ? OR incoming_msg_id = ?) 
+                 ORDER BY msg_id DESC LIMIT 1";
+        $stmt2 = mysqli_prepare($conn, $sql2);
+        mysqli_stmt_bind_param($stmt2, "ssss", $row['unique_id'], $row['unique_id'], $outgoing_id, $outgoing_id);
+        mysqli_stmt_execute($stmt2);
+        $query2 = mysqli_stmt_get_result($stmt2);
+        $row2 = mysqli_fetch_assoc($query2);
+
+        $result = (mysqli_num_rows($query2) > 0) ? $row2['msg'] : "No message available";
+        $msg = (strlen($result) > 28) ? substr($result, 0, 28) . '...' : $result;
+        
+        $you = (isset($row2['outgoing_msg_id']) && $outgoing_id == $row2['outgoing_msg_id']) ? "You: " : "";
+        
+        $offline = ($row['status'] == "Offline now") ? "offline" : "";
+        
+        $output .= '<a href="#" class="user-item" data-user-id="'.$row['unique_id'].'">
+                    <div class="content">
+                    <img src="php/images/'. (isset($row['img']) ? $row['img'] : 'default.png') .'" alt="">
+                    <div class="details">
+                        <span>'. $row['fname']. " " . $row['lname'] .'</span>
+                        <p>'. $you . $msg .'</p>
+                    </div>
+                    </div>
+                    <div class="status-dot '. $offline .'"><i class="fas fa-circle"></i></div>
+                </a>';
     }
 }
 
